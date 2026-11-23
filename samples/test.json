@@ -1,0 +1,140 @@
+{
+  "description": "A JSON parser test fixture covering common JSON value types and edge cases.",
+  "null_value": null,
+  "booleans": [
+    true,
+    false
+  ],
+  "numbers": {
+    "zero": 0,
+    "negative_integer": -42,
+    "positive_integer": 123456789,
+    "large_integer": 9007199254740993,
+    "decimal": 3.141592653589793,
+    "negative_decimal": -0.125,
+    "negative_zero": -0.0,
+    "small_exponent": 1e-09,
+    "large_exponent": 6.022e+23,
+    "exponent_with_plus": 12500.0
+  },
+  "strings": {
+    "empty": "",
+    "plain": "Hello, JSON!",
+    "quotes": "She said, \"Hello!\"",
+    "backslash": "C:\\Users\\example\\file.txt",
+    "slashes": "https://example.com/a/b",
+    "escaped_controls": "Line 1\nLine 2\tTabbed\rCarriage return\bBackspace\fForm feed",
+    "unicode": "Café, Ελληνικά, 日本語, العربية",
+    "emoji": "🚀 🌍 🧪",
+    "json_escape_examples": "Quote: \" Backslash: \\ Newline: \n Tab: \t",
+    "literals_as_text": "null, true, false, 123 are strings here"
+  },
+  "empty_array": [],
+  "empty_object": {},
+  "mixed_array": [
+    null,
+    true,
+    false,
+    0,
+    -1,
+    2.5,
+    "text",
+    [],
+    {},
+    {
+      "nested": [
+        "array",
+        {
+          "deeper": "value"
+        }
+      ]
+    }
+  ],
+  "nested_object": {
+    "level_1": {
+      "level_2": {
+        "level_3": {
+          "message": "You found the deepest example.",
+          "items": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    }
+  },
+  "arrays": {
+    "numbers": [
+      0,
+      1,
+      -1,
+      1.5,
+      1000000.0
+    ],
+    "strings": [
+      "",
+      "one",
+      "two",
+      "three"
+    ],
+    "nested_arrays": [
+      [
+        1,
+        2
+      ],
+      [],
+      [
+        3,
+        [
+          4,
+          [
+            5
+          ]
+        ]
+      ]
+    ],
+    "objects": [
+      {
+        "id": 1
+      },
+      {
+        "id": 2
+      },
+      {
+        "id": 3
+      }
+    ]
+  },
+  "object_keys": {
+    "": "empty key",
+    "key with spaces": "spaces",
+    "123": "numeric-looking key",
+    "true": "boolean-looking key",
+    "special/characters~": "JSON Pointer-style characters"
+  },
+  "unicode_code_points": {
+    "copyright": "©",
+    "euro": "€",
+    "cjk": "漢字",
+    "supplementary_plane": "𝄞",
+    "emoji_sequence": "👩‍💻"
+  },
+  "deeply_nested": {
+    "a": [
+      {
+        "b": [
+          {
+            "c": [
+              {
+                "d": {
+                  "e": "end"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
