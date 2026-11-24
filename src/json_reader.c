@@ -1,4 +1,4 @@
-#include "json_reader.h"
+#include "json.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -19,7 +19,6 @@
 #define JSON_LITERAL_NULL        "null"
 
 #define QUOTATION_MARK          '"'
-#define NEWLINE                 '\n'
 #define ESCAPE                  '\\'
 #define REVERSE_SOLIDUS         '\\'
 #define SOLIDUS                 '/'
@@ -52,13 +51,14 @@ typedef struct {
     size_t length;
 } BufferView;
 
-uint8_t reader_is_end_of_buffer(const JsonReader *reader);
+uint8_t is_end_of_buffer(const JsonReader *reader);
 size_t reader_size(const JsonReader *reader);
 void skip_whitespace(JsonReader *reader);
 uint8_t reader_advance(JsonReader *reader, uint32_t count);
 uint8_t reader_peek(const JsonReader *reader, uint32_t count, uint8_t *value);
 uint8_t match_literal(const JsonReader *reader, const char *literal);
-uint8_t match_character(const JsonReader *reader, char character);
+bool match_character(const JsonReader *reader, char character);
+bool match_character_at(const JsonReader *reader, char character, uint32_t offset);
 uint8_t match_number(const JsonReader *reader, BufferView *value);
 uint8_t match_string(const JsonReader *reader, BufferView *value);
 int32_t parse_number(const BufferView *value, JsonNumber *number);
@@ -66,8 +66,11 @@ int32_t parse_number(const BufferView *value, JsonNumber *number);
 int32_t json_reader_init(JsonReader *reader, JsonStream *stream) {
     reader->token = (JsonToken){0};
     reader->stream = stream;
-    reader->read_position = 0;
-    reader->end_position = 0;
+    reader->global_position = 0;
+    reader->current_position = 0;
+    reader->buffer_end = 0;
+    reader->current_line = 1;
+    reader->current_column = 1;
     reader->can_read = 1;
 
     return JSON_RESULT_OK;
@@ -78,7 +81,7 @@ bool json_reader_move_next(JsonReader *reader) {
         return false;
     }
 
-    if (reader_is_end_of_buffer(reader)) {
+    if (is_end_of_buffer(reader)) {
         const size_t read = reader->stream->read(reader->stream, reader->buffer, sizeof(reader->buffer));
 
         if (read <= 0) {
@@ -86,8 +89,8 @@ bool json_reader_move_next(JsonReader *reader) {
             return false;
         }
 
-        reader->read_position = 0;
-        reader->end_position = read - 1;
+        reader->current_position = 0;
+        reader->buffer_end = read - 1;
     }
 
     JsonToken token = {0};
@@ -169,16 +172,29 @@ found:
     return true;
 }
 
-uint8_t reader_is_end_of_buffer(const JsonReader *reader) {
-    return reader->read_position >= reader->end_position;
+char json_reader_current_char(const JsonReader *reader) {
+    if (reader_size(reader) < 1) {
+        return '\0';
+    }
+
+    return (char)reader->buffer[reader->current_position];
+}
+
+uint8_t is_end_of_buffer(const JsonReader *reader) {
+    return reader->current_position >= reader->buffer_end;
 }
 
 void skip_whitespace(JsonReader *reader) {
-    while (!reader_is_end_of_buffer(reader)) {
-        const uint8_t c = reader->buffer[reader->read_position];
+    while (!is_end_of_buffer(reader)) {
+        const uint8_t c = reader->buffer[reader->current_position];
 
         if (isspace(c)) {
-            reader->read_position++;
+            const bool is_newline = c == '\r' || c == '\n';
+            const uint8_t advance_by = c == '\r' && match_character_at(reader, '\n', 1) ? 2 : 1;
+
+            reader_advance(reader, advance_by);
+            reader->current_line += is_newline ? 1 : 0;
+            reader->current_column = is_newline ? 1 : reader->current_column;
             continue;
         }
 
@@ -187,31 +203,33 @@ void skip_whitespace(JsonReader *reader) {
 }
 
 uint8_t reader_advance(JsonReader *reader, const uint32_t count) {
-    if (reader->read_position + count > reader->end_position) {
+    if (reader->current_position + count > reader->buffer_end) {
         return 0;
     }
 
-    reader->read_position += count;
+    reader->global_position += count;
+    reader->current_position += count;
+    reader->current_column += count;
     return 1;
 }
 
 uint8_t reader_peek(const JsonReader *reader, const uint32_t count, uint8_t *value) {
-    if (reader->read_position + count > reader->end_position) {
+    if (reader->current_position + count > reader->buffer_end) {
         return 0;
     }
 
-    *value = reader->buffer[reader->read_position + count];
+    *value = reader->buffer[reader->current_position + count];
     return 1;
 }
 
 size_t reader_size(const JsonReader *reader) {
-    return reader->end_position - reader->read_position + 1;
+    return reader->buffer_end - reader->current_position + 1;
 }
 
 void reader_get(const JsonReader *reader, char *value, const size_t length) {
     assert(reader_size(reader) >= length);
 
-    memcpy(value, reader->buffer + reader->read_position, length);
+    memcpy(value, reader->buffer + reader->current_position, length);
 }
 
 uint8_t match_literal(const JsonReader *reader, const char *literal) {
@@ -226,13 +244,18 @@ uint8_t match_literal(const JsonReader *reader, const char *literal) {
     return strncmp(value, literal, length) == 0;
 }
 
-uint8_t match_character(const JsonReader *reader, char character) {
-    if (reader_size(reader) < 1) {
+bool match_character(const JsonReader *reader, char character) {
+    return match_character_at(reader, character, 0);
+}
+
+bool match_character_at(const JsonReader *reader, char character, uint32_t offset) {
+    if (reader_size(reader) < 1 + offset) {
         return 0;
     }
 
-    return reader->buffer[reader->read_position] == character;
+    return reader->buffer[reader->current_position + offset] == character;
 }
+
 uint8_t match_number(const JsonReader *reader, BufferView *value) {
     if (reader_size(reader) < 1) {
         return 0;
@@ -291,7 +314,7 @@ uint8_t match_number(const JsonReader *reader, BufferView *value) {
 
     *value = (BufferView) {
         .length = value_length,
-        .data = &reader->buffer[reader->read_position]
+        .data = &reader->buffer[reader->current_position]
     };
 
     return 1;
@@ -306,7 +329,7 @@ uint8_t match_string(const JsonReader *reader, BufferView *value) {
 
     bool escaped = false;
     while (reader_peek(reader, value_length + 1, &c)) {
-        if (c == NEWLINE) {
+        if (c == '\n' || c == '\r') {
             return 0;
         }
 
@@ -329,7 +352,7 @@ uint8_t match_string(const JsonReader *reader, BufferView *value) {
 
     *value = (BufferView) {
             .length = value_length,
-            .data = &reader->buffer[reader->read_position + 1]
+            .data = &reader->buffer[reader->current_position + 1]
         };
 
     return 1;

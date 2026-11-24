@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "json.h"
-#include "json_reader.h"
 
 #include <windows.h>
 
@@ -18,13 +17,29 @@ typedef struct {
 } TestStruct;
 
 int main() {
+    const char *file_name = "..\\test_struct.json";
+
     JsonStream stream;
-    if (json_open_file_stream(&stream, "..\\test_struct.json", "r") != JSON_RESULT_OK) {
+    if (json_open_file_stream(&stream, file_name, "r") != JSON_RESULT_OK) {
         exit(1);
     }
 
-    JsonNode *node = json_deserialize(&stream, NULL);
+    JsonContext context = {0};
+
+    JsonNode *node = json_deserialize(&context, &stream);
     json_stream_dispose(&stream);
+
+    if (!node) {
+        JsonSerializerError error = json_error();
+        printf("Failed to deserialize JSON with error: %s (%d): %s at %s:%d:%d\n",
+            error.code_display_name,
+            error.code,
+            error.message,
+            file_name,
+            error.line,
+            error.column);
+        exit(1);
+    }
 
     TestStruct test_struct = (TestStruct) {
         .name = json_node_get_item(node, "name")->value.string.value,
