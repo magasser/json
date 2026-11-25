@@ -37,6 +37,29 @@ JsonNode * json_node_get_item_by_path(JsonNode *node, JsonPath path) {
     return json_node_get_item_by_path(child, new_path);
 }
 
+char * json_node_to_string(JsonNode *node) {
+    if (!node) {
+        return NULL;
+    }
+
+    uint32_t depth = 0;
+    for (const JsonNode *p = node->parent; p; p = p->parent) {
+        depth++;
+    }
+
+    // TODO: Add to_string functions for object, array and value
+    const size_t required = snprintf(NULL, 0, "JsonNode(kind=%s, depth=%d)", JSON_NODE_KIND_NAMES[node->kind], depth);
+
+    char *value = malloc(required * sizeof(char));
+    if (!value) {
+        return NULL;
+    }
+
+    snprintf(value, required, "JsonNode(kind=%s, depth=%d)", JSON_NODE_KIND_NAMES[node->kind], depth);
+
+    return value;
+}
+
 void dispose_object(JsonObject object) {
     for (uint32_t i = 0; i < object.member_count; i++) {
         json_node_dispose(object.members[i].value);

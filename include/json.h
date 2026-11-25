@@ -7,6 +7,7 @@
 
 #define JSON_RESULT_OK 0
 #include <stdio.h>
+
 #ifdef JSON_DEBUG
     #define JSON_RESULT_ERROR (__debugbreak(), -1)
 #else
@@ -26,8 +27,12 @@
     }
 
 #define JSON_ERROR_CODES(X) \
+    /* General errors */ \
     X(JSON_ERROR_CODE_NONE, "NONE") \
     X(JSON_ERROR_CODE_INTERNAL_ERROR, "INTERNAL_ERROR") \
+    X(JSON_ERROR_CODE_INVALID_ARGUMENT, "INVALID_ARGUMENT") \
+    \
+    /* Deserialization errors */ \
     X(JSON_ERROR_CODE_UNEXPECTED_END_OF_INPUT, "UNEXPECTED_END_OF_INPUT") \
     X(JSON_ERROR_CODE_UNEXPECTED_CHARACTER, "UNEXPECTED_CHARACTER") \
     X(JSON_ERROR_CODE_EXPECTED_VALUE, "EXPECTED_VALUE") \
@@ -41,7 +46,15 @@
     X(JSON_ERROR_CODE_INVALID_ESCAPE_SEQUENCE, "INVALID_ESCAPE_SEQUENCE") \
     X(JSON_ERROR_CODE_INVALID_UNICODE_ESCAPE, "INVALID_UNICODE_ESCAPE") \
     X(JSON_ERROR_CODE_TRAILING_CHARACTERS, "TRAILING_CHARACTERS") \
-    X(JSON_ERROR_CODE_MAX_DEPTH_EXCEEDED, "MAX_DEPTH_EXCEEDED")
+    X(JSON_ERROR_CODE_MAX_DEPTH_EXCEEDED, "MAX_DEPTH_EXCEEDED") \
+    \
+    /* Serialization errors */ \
+    X(JSON_ERROR_CODE_INVALID_VALUE, "INVALID_VALUE") \
+    X(JSON_ERROR_CODE_UNSUPPORTED_VALUE, "UNSUPPORTED_VALUE") \
+    X(JSON_ERROR_CODE_NON_FINITE_NUMBER, "NON_FINITE_NUMBER") \
+    X(JSON_ERROR_CODE_INVALID_STRING_ENCODING, "INVALID_STRING_ENCODING") \
+    X(JSON_ERROR_CODE_CIRCULAR_REFERENCE, "CIRCULAR_REFERENCE") \
+    X(JSON_ERROR_CODE_OUTPUT_LIMIT_EXCEEDED, "OUTPUT_LIMIT_EXCEEDED") \
 
 #define JSON_TOKEN_KINDS(X) \
     X(JSON_TOKEN_KIND_NONE, "NONE") \
@@ -87,6 +100,8 @@ GENERATE_ENUM_WITH_NAME_MAPPINGS(JsonValueKind, JSON_VALUE_KIND_NAMES, JSON_VALU
 #undef JSON_VALUE_KINDS
 
 #define JSON_BUFFER_SIZE 4096
+
+// TODO: Add Doxygen documentation
 
 typedef struct JsonNode JsonNode;
 
@@ -143,7 +158,6 @@ typedef struct {
         JsonNull null;
     };
 } JsonValue;
-typedef struct JsonNodeCollection JsonNodeCollection;
 
 struct JsonNode {
     JsonNodeKind kind;
@@ -211,9 +225,22 @@ typedef struct  {
     uint8_t can_read;
 } JsonReader;
 
+typedef struct  {
+    JsonStream *stream;
+    JsonNode *current_node;
+    uint32_t global_position;
+    uint32_t current_position;
+    uint8_t can_write;
+} JsonWriter;
+
 typedef struct {
-    uint8_t _dummy;
+    uint32_t max_depth;
+    bool use_pretty_printing;
+    const char *new_line;
+    const char *indent;
 } JsonSerializerOptions;
+
+extern const JsonSerializerOptions DEFAULT_SERIALIZER_OPTIONS;
 
 typedef struct {
     JsonErrorCode code;
@@ -221,17 +248,14 @@ typedef struct {
     const char *message;
     uint32_t line;
     uint32_t column;
-    char current_char;
+    JsonNode *node;
 } JsonSerializerError;
 
-typedef struct {
-    JsonSerializerOptions options;
-    uint32_t depth;
-} JsonContext;
+JsonNode * json_deserialize(JsonStream *stream, JsonSerializerOptions *options);
 
-JsonNode * json_deserialize(JsonContext *context, JsonStream *stream);
+int32_t json_serialize(JsonNode *node, JsonStream *stream, JsonSerializerOptions *options);
 
-int32_t json_serialize(JsonContext *context, JsonNode *node, JsonStream *stream);
+JsonSerializerOptions json_options_default(void);
 
 JsonSerializerError json_error(void);
 
@@ -239,13 +263,15 @@ JsonNode *json_node_get_item(JsonNode *node, const char *name);
 
 JsonNode *json_node_get_item_by_path(JsonNode *node, JsonPath path);
 
-void json_node_dispose(JsonNode *node);
+char *json_node_to_string(JsonNode *node);
 
-int32_t json_reader_init(JsonReader *reader, JsonStream *stream);
+void json_node_dispose(JsonNode *node);
 
 bool json_reader_move_next(JsonReader *reader);
 
 char json_reader_current_char(const JsonReader *reader);
+
+JsonNode * json_writer_current_node(const JsonWriter *writer);
 
 int32_t json_open_file_stream(JsonStream *stream, const char *file_name, const char *mode);
 

@@ -29,7 +29,6 @@
 #define TAB                     't'
 #define U_XXXX                  'u'
 
-
 #ifdef _WIN32
 char *strndup(const char *src, size_t n) {
     size_t len = 0;
@@ -62,19 +61,6 @@ bool match_character_at(const JsonReader *reader, char character, uint32_t offse
 uint8_t match_number(const JsonReader *reader, BufferView *value);
 uint8_t match_string(const JsonReader *reader, BufferView *value);
 int32_t parse_number(const BufferView *value, JsonNumber *number);
-
-int32_t json_reader_init(JsonReader *reader, JsonStream *stream) {
-    reader->token = (JsonToken){0};
-    reader->stream = stream;
-    reader->global_position = 0;
-    reader->current_position = 0;
-    reader->buffer_end = 0;
-    reader->current_line = 1;
-    reader->current_column = 1;
-    reader->can_read = 1;
-
-    return JSON_RESULT_OK;
-}
 
 bool json_reader_move_next(JsonReader *reader) {
     if (!reader->can_read) {

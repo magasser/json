@@ -7,6 +7,7 @@ endif()
 set(JSON_SOURCES
         json.c
         json_reader.c
+        json_writer.c
         json_stream.c
         json_types.c)
 

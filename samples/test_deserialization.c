@@ -24,13 +24,11 @@ int main() {
         exit(1);
     }
 
-    JsonContext context = {0};
-
-    JsonNode *node = json_deserialize(&context, &stream);
+    JsonNode *node = json_deserialize(&stream, NULL);
     json_stream_dispose(&stream);
 
     if (!node) {
-        JsonSerializerError error = json_error();
+        const JsonSerializerError error = json_error();
         printf("Failed to deserialize JSON with error: %s (%d): %s at %s:%d:%d\n",
             error.code_display_name,
             error.code,
